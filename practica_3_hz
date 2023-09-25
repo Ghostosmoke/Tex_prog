@@ -1,6 +1,8 @@
 #include <iostream>
 #include <cmath>
-//#include <mgl2/qt.h>
+#include "GnuP.h"
+#include <fstream>
+
 using namespace std;
 double* SLAU(double** a, double* y, int n) {
     double* x, max;
@@ -62,8 +64,9 @@ double** zero_matrix(double** A, int n) {
         for (int j = 0; j < n; j++) {
             A[i][j] = 0;
         }
-        return A;
+
     }
+    return A;
 }
 double* zero_matrix_b(double* b, int n) {
     for (int i = 0; i < n; i++) {
@@ -71,71 +74,351 @@ double* zero_matrix_b(double* b, int n) {
     }
     return b;
 }
+double** polinom_k(double** matrix, int col, double* x, double* y, int) {
+    double x_sum = 0;
+    for (int i = 0; i < col; i++) {
+        for (int j = 0; j < col; j++) {
+
+            for (int k = 0; k < col; k++) {
+                x_sum += pow(x[k], i + j);
+            }
+            matrix[i][j] = 0;
+            x_sum = 0;
+        }
+
+
+    }
+    return matrix;
+}
+double* polinom_k_b(int col, double* matrix_b, double* x, double* y) {
+    double x_sum = 0;
+    for (int i = 0; i < col; i++) {
+        for (int k = 0; k < col; k++) {
+            x_sum += pow(x[k], i) * y[i];
+        }
+        matrix_b[i] = x_sum;
+        x_sum = 0;
+
+    }
+    return matrix_b;
+}
+double absolute_error(double y_none, double y_get) {
+    return abs(y_none - y_get);
+}
+double relative_error(double y_none, double y_absolute) {
+    return abs(y_absolute / y_none * 100);
+}
+
+double nuton_calc(int n,double * x,double *A,double t) {
+    double y_nuton=0,braces=1;
+    y_nuton =A[0];
+
+
+    for (int i = 0; i < n; i++) {
+        braces *= t - x[i];
+        y_nuton += A[i+1] * braces;
+    }
+        
+    return y_nuton;
+}
+
+
+double* nuton_polinom(int n, double* x, double* y) {
+    int i, j;
+    double* A,*y_nuton;
+    A = new double [n];
+    y_nuton= new double[n];
+
+    for (i = 0; i < n; i++)
+        A[i] = y[i];
+		
+    for (j = 1; j < n; j++){
+        for (i = j; i < n;i++){
+            A[i] = (A[i] - A[j - 1]) / (x[i] - x[j - 1]);
+		}
+	}
+    for (i = 0; i < n; i++) {
+
+        y_nuton[i]=nuton_calc(n, x, A, x[i]);
+
+    }
+
+    return y_nuton;
+}	
+double* nuton_polinom_3(int n, double* x, double* y,int n3,double*t) {
+    int i, j;
+    double* A,*y_nuton;
+    A = new double [n];
+    y_nuton= new double[n3];
+
+    for (i = 0; i < n; i++)
+        A[i] = y[i];
+		
+    for (j = 1; j < n; j++){
+        for (i = j; i < n;i++){
+            A[i] = (A[i] - A[j - 1]) / (x[i] - x[j - 1]);
+		}
+	}
+    for (i = 0; i < n3; i++) {
+
+        y_nuton[i]=nuton_calc(n3, t, A, t[i]);
+
+    }
+
+    return y_nuton;
+}
+double spline_calc(int n,int i, double* x, double** a, double s) {
+    double g;
+        g = a[i][0] + a[i][1] * (s - x[i]) + a[i][2] * pow((s - x[i]), 2) + a[i][3] * pow((s - x[i]), 3);
+    return g;
+}
+
+double** spline_polin(int n, double* x, double* y) {
+    double *h,*l,*b,*a,*c,*B,*d,**A;
+    int i, j;
+    h = new double[n];
+    l = new double[n];
+    b = new double[n];
+    a = new double[n];
+    c = new double[n];
+    d = new double[n];
+    B = new double[n];
+    A = new double* [n];
+    for (i = 0; i < n; i++)
+        A[i] = new double[4];
+
+    for (i = 1; i < n; i++) {
+        h[i] = x[i] - x[i - 1];
+        l[i] = (y[i] - y[i - 1]) / h[i];
+    }
+    b[1] = -0.5 * h[2] / (h[1] + h[2]);
+    a[1] = 1.5 * (l[2]-l[1]) / (h[1] + h[2]);
+
+    for (i = 3; i < n; i++) {
+        b[i - 1] = h[i] / (2*h[i - 1] + 2*h[i] + h[i - 1]*b[i - 2]);
+        a[i - 1] = (3 * l[i] - 3 * l[i - 1] - h[i - 1] * a[i - 2])/
+            (2*h[i-1]+2*h[i]+h[i-1]*b[i-2]);
+    }
+    for (i = n; i < 2; i--) 
+        c[i - 1] = b[i - 1] * c[i] + a[i - 1];
+
+    for (i = 1; i < n; i++) {
+        B[i] = l[i] + 2 * c[i] * h[i] / 3.0 + h[i] * c[i - 1] / 3.0;
+        d[i] = (c[i] - c[i - 1] )/ 3 * h[i];
+    }
+
+    for (i = 0; i < n; i++) {
+        A[i][0] = y[i];
+        A[i][1] = B[i];
+        A[i][2] = c[i];
+        A[i][3] = d[i];
+    }
+
+    return A;
+}
+
+	
 int main() {
+	
+	double *x,*y,*t;
+	GnuP gp;
     setlocale(LC_ALL, "rus");
-    double* a, ** A, * b, * y1, * y2;
-    int n = 9, N = 2;
+	// запись значений
+    const char *FName = "1.dat";
+    int k_1=6,k_12=3;
+        //~ cout << "kol =";
+        //~ cin >> k_1;
+        x=new double[k_1];
+        y=new double[k_1];
+		t=new double[k_12];
+        cout << endl;
+        //~ double *q_123;
+        //~ q_123 = new double[k_1];
+        //~ double *w_123;
+        //~ w_123 = new double[k_1];
+        //~ double*t_123;
+        //~ t_123 = new double[k_12];
+        //~ cout << "Введите массив x\n";
+        //~ for (int i = 0; i < k_1; i++)
+        //~ {
+            //~ cin >> q_123[i];
+        //~ }
+        //~ cout << "Введите массив y\n";
+        //~ for (int i = 0; i < k_1; i++)
+        //~ {
+            //~ cin >> w_123[i];
+        //~ }
+        //~ cout << "Введите массив t\n";
+        //~ for (int i = 0; i < k_12; i++)
+        //~ {
+            //~ cin >> t_123[i];
+        //~ }
+        //~ fstream out(FName, ios::out | ios::binary);
+        //~ out.write((char *)&k_1, sizeof(k_1));
+        //~ out.write((char *)q_123, sizeof(double) * k_1);
+        //~ out.write((char *)w_123, sizeof(double) * k_1);
+        //~ out.write((char *)t_123, sizeof(double) * k_12);
+        //~ out.close();
+        //~ delete (q_123);
+        //~ delete (w_123);
+        //~ delete (t_123);
+        
+      
 
+    // считывание значений
+    fstream in(FName, ios::in | ios::binary);
+    in.read((char *)&k_1, sizeof(k_1));
+    double *x_123;
+    x_123 = new double[k_1];
+    double *y_123;
+    y_123 = new double[k_1];
+    double *x_012;
+    x_012=new double[k_12];
+    in.read((char *)x_123, sizeof(double) * k_1);
+    in.read((char *)y_123, sizeof(double) * k_1);
+    in.read((char *)x_012, sizeof(double) * k_12);
+    in.close();
+    
+    for (int i = 0; i < k_1; i++)
+    {
+        x[i] = x_123[i];
+        y[i] = y_123[i];
+        
+    }
+    for (int i = 0; i < k_12; i++)
+    {
+		t[i] = x_012[i];
+    }
+    delete (x_123);
+    delete (y_123);
+    delete (x_012);
+    cout << "значения х,у,t:" << endl;
+    for (int i = 0; i < k_1; i++)
+    {
+        cout << "x" << i + 1 << " = " << x[i] << endl;
+    }
+    for (int i = 0; i < k_1; i++)
+    {
+        cout << "y" << i + 1 << " = " << y[i] << endl;
+    }
+    for (int i = 0; i < k_12; i++)
+    {
+        cout << "t" << i + 1 << " = " << t[i] << endl;
+    }
+    
 
-    double x[9] = { 0,0.5,1,1.5,2,2.5,3,3.5,4 };
-    double y[9] = { 2.31,2.899,3.534,4.412,5.578,6.92,8.699,10.69,13.39 };
-    //cout << "Введите значения х и у:" << endl;
+	
+	
+    setlocale(LC_ALL, "rus");
+    double *a,  * b;
+    int N = 6;
+	int n3=3;
 
-    A = new double* [N];
+	int i,j,k;
     b = new double[N];
     a = new double[N];
-    y1 = new double[n];
-    y2 = new double[n];
-    A = matrix_new(A, N);
-    A = zero_matrix(A, N);
+    
+    
     b = zero_matrix_b(b, N);
-    A[0][0] = n;
-
-    for (int i = 0; i < n; i++) {
-        A[0][1] += x[i];
-        A[1][0] += x[i]; A[1][1] = x[i] * x[i];
-        b[0] += y[i];
-        b[1] +=y[i] * x[i];
-    }
-    //a = SLAU(A, b, N);
-    for (int i = 0; i < N; i++) {
-        cout << a[i] << endl;
-    }
-
+    double **A_new;
+    A_new = new double* [N];
+    A_new = matrix_new(A_new, N);
+    double*y_new;
+    y_new=new double[N];
     
-    for (int i = 0; i < 9; i++)
-    {
-        y1[i] = a[0] * exp(a[1] * x[i]);
-        y2[i] = a[0] + a[1] * x[i];
-    }
-    double r = 0, Mx = 0, My = 0;
-    for (int i = 0; i < n; i++) {
-        Mx += x[i]; My += y[i];
-        
-    }
-    
-    double chisl = 0, znam1 = 0, znam2 = 0;
-    for (int i = 0; i < n; i++) {
-
-        chisl += (x[i] - Mx / n) * (y[i] - My / n);
-        znam1 += (x[i] - Mx / n) * (x[i] - Mx / n);
-        znam2 += (y[i] - My / n) * (y[i] - My / n);
-        
+    gp.plotArrayPar(N, x, y, 1, 5, 11, "Точки");
+    //канонический полином
+    for (i = 0; i < N; i++) 
+        for (j = 0; j < N; j++) {
+                y_new[i]=y[i];
+                A_new[i][j] = pow(x[i], j);
+            }
             
-    }
-    r = chisl / sqrt(znam1 * znam2);
-    double yx = 0, xx = 0;
-    for (int i = 0; i < n; i++) {
-        yx += y[i] * x[i];
-        xx = x[i] * x[i];
-        
-    }
-    a[1] = (n * yx - My * Mx / n / n) / (n * xx - Mx * Mx / n / n);
-    a[0] = My / n - a[1] * Mx / n;
-    cout << "a:";
-    cout << a[0] << "*exp^(" << a[1] << "*x)" << endl;
-    cout << "\nЛиния регрессии: у=" << a[0] << "+" << a[1] << "х" << endl;
-    cout << "Коэффициент корреляции: r=" << r << endl;
+    a=SLAU(A_new,y_new,N);
+    y_new=zero_matrix_b(y_new,N);
+    for (i = 0; i < N; i++)
+            for (j = 0; j < N; j++) 
+                y_new[i] += pow(x[i], j) * a[j];
+    gp.plotArrayPar(N, x, y_new, 2, 2, 12, "Канонический полином");
+	
+	//для экспереминтальных точек
+	double *y3;
+	y3=new double[3];
+	
+
+    for (i = 0; i < n3; i++){
+            for (j = 0; j < N; j++) 
+                y3[i] += pow(t[i], j) * a[j];}
+    gp.plotArrayPar(n3, t, y3, 1, 5, 12, "Канонический полином Точки");
+
+    //конец
+    
+	//полином Ньютона
+
+
+    gp.plotArrayPar(N, x, nuton_polinom(N,x,y), 2, 3, 5, "Полином Ньютона");
+	//для экспереминтальных точек
+    gp.plotArrayPar(N, x, nuton_polinom_3(N,x,y,n3,t), 1, 5, 5, "Полином Ньютона Точки");
+
+	//конец
+	
+	//Полином Лагранжа
+	int multiply;
+	double *pol_kol_3,sum_y,*pol_kol;
+	pol_kol_3=new double[n3];
+	pol_kol=new double[N];
+
+	for(k=0;k<N;k++){
+		sum_y=0;
+		for(i=0;i<N;i++){
+			y_new[i]=0;
+			multiply=1;
+			
+			for(j=0;j<N;j++){
+				if(j!=i) {multiply*=(x[k]-x[j])/(x[i]-x[j]);
+					}
+			}
+			cout<<sum_y<<endl;
+
+			sum_y+=y[i]*multiply;
+		}
+		pol_kol[k]=sum_y;
+	}
+
+
+	gp.plotArrayPar(N, x , pol_kol, 2, 3, 4, "Полином Лагранжа");
+	//для экспереминтальных точек
+	for(k=0;k<n3;k++){
+		sum_y=0;
+		for(i=0;i<N;i++){
+			multiply=1;
+			
+			for(j=0;j<N;j++){
+				if(j!=i) {multiply*=(t[k]-x[j])/(x[i]-x[j]);
+					}
+			}
+			sum_y+=y[i]*multiply;
+		}
+		pol_kol_3[k]=sum_y;
+	}
+	gp.plotArrayPar(n3, t , pol_kol_3, 1, 5, 4, "Полином Лагранжа Точки");
+
+	//конец
+	//Интерполяция сплайнами
+	//~ double *y_spline_i,**mat_spline;
+	//~ mat_spline=new double*[N];
+	//~ mat_spline = matrix_new(mat_spline, 4);
+		//~ mat_spline[0] = spline_calc(N, 1, x, spline_polin(N, x, y), x[0]);
+
+	//~ for(i=1;i<N;i++){
+			//~ mat_spline[k] = spline_calc(N, k, x, spline_polin(N, x, y), x[0]);
+
+		//~ }
+	//~ gp.plotArrayPar(N, x , spline_polin, 2, 3, 4, "Интерполяция сплайнами");
+	//конец
+
+	
+	gp.plot();
 
     return 0;
 }
