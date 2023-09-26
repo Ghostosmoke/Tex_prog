@@ -175,7 +175,7 @@ double spline_calc(int n,int i, double* x, double** a, double s) {
 
 double** spline_polin(int n, double* x, double* y) {
     double *h,*l,*b,*a,*c,*B,*d,**A;
-    int i, j;
+    int i;
     h = new double[n];
     l = new double[n];
     b = new double[n];
@@ -217,7 +217,21 @@ double** spline_polin(int n, double* x, double* y) {
     return A;
 }
 
-	
+double lagr_calc(int n, double* x, double* y,double t) {
+    double lag_polin=0,P=1;
+    int i,j;
+
+    for (i = 0; i < n; i++) {
+        P = 1;
+        for (j = 0; j < n; j++) {
+            if (i != j) 
+                P *= (t - x[j]) / (x[i] - x[j]);
+        }
+        lag_polin += y[i] * P;
+    }
+
+    return lag_polin;
+}	
 int main() {
 	
 	double *x,*y,*t;
@@ -335,11 +349,12 @@ int main() {
             }
             
     a=SLAU(A_new,y_new,N);
+    for(i=0;i<N;i++)cout<<a[i]<<"\t";
     y_new=zero_matrix_b(y_new,N);
     for (i = 0; i < N; i++)
             for (j = 0; j < N; j++) 
                 y_new[i] += pow(x[i], j) * a[j];
-    gp.plotArrayPar(N, x, y_new, 2, 2, 12, "Канонический полином");
+    //gp.plotArrayPar(N, x, y_new, 2, 2, 12, "Канонический полином");
 	
 	//для экспереминтальных точек
 	double *y3;
@@ -356,14 +371,14 @@ int main() {
 	//полином Ньютона
 
 
-    gp.plotArrayPar(N, x, nuton_polinom(N,x,y), 2, 3, 5, "Полином Ньютона");
+    //gp.plotArrayPar(N, x, nuton_polinom(N,x,y), 2, 3, 5, "Полином Ньютона");
 	//для экспереминтальных точек
-    gp.plotArrayPar(N, x, nuton_polinom_3(N,x,y,n3,t), 1, 5, 5, "Полином Ньютона Точки");
+    gp.plotArrayPar(n3, t, nuton_polinom_3(N,x,y,n3,t), 1, 5, 15, "Полином Ньютона Точки");
 
 	//конец
 	
 	//Полином Лагранжа
-	int multiply;
+	int multiply=1;
 	double *pol_kol_3,sum_y,*pol_kol;
 	pol_kol_3=new double[n3];
 	pol_kol=new double[N];
@@ -371,50 +386,42 @@ int main() {
 	for(k=0;k<N;k++){
 		sum_y=0;
 		for(i=0;i<N;i++){
-			y_new[i]=0;
-			multiply=1;
+			
 			
 			for(j=0;j<N;j++){
 				if(j!=i) {multiply*=(x[k]-x[j])/(x[i]-x[j]);
 					}
 			}
-			cout<<sum_y<<endl;
 
 			sum_y+=y[i]*multiply;
+			multiply=1;
 		}
 		pol_kol[k]=sum_y;
 	}
 
 
-	gp.plotArrayPar(N, x , pol_kol, 2, 3, 4, "Полином Лагранжа");
+	//gp.plotArrayPar(N, x , pol_kol, 2, 3, 4, "Полином Лагранжа");
 	//для экспереминтальных точек
-	for(k=0;k<n3;k++){
-		sum_y=0;
-		for(i=0;i<N;i++){
-			multiply=1;
-			
-			for(j=0;j<N;j++){
-				if(j!=i) {multiply*=(t[k]-x[j])/(x[i]-x[j]);
-					}
-			}
-			sum_y+=y[i]*multiply;
-		}
-		pol_kol_3[k]=sum_y;
-	}
+	for(i=0;i<n3;i++) pol_kol_3[i]=lagr_calc(n3,x,y,t[i]);
+
 	gp.plotArrayPar(n3, t , pol_kol_3, 1, 5, 4, "Полином Лагранжа Точки");
 
-	//конец
-	//Интерполяция сплайнами
-	//~ double *y_spline_i,**mat_spline;
-	//~ mat_spline=new double*[N];
-	//~ mat_spline = matrix_new(mat_spline, 4);
-		//~ mat_spline[0] = spline_calc(N, 1, x, spline_polin(N, x, y), x[0]);
 
-	//~ for(i=1;i<N;i++){
-			//~ mat_spline[k] = spline_calc(N, k, x, spline_polin(N, x, y), x[0]);
+	double *y_spline;
+	y_spline=new double[N];
+	for(i=0;i<N;i++){
+		y_spline[i] = spline_calc(N,i, x, spline_polin(N, x, y), x[i]);
 
-		//~ }
-	//~ gp.plotArrayPar(N, x , spline_polin, 2, 3, 4, "Интерполяция сплайнами");
+		}
+	//gp.plotArrayPar(N, x , y_spline, 2, 3, 12, "Интерполяция сплайнами");
+	//для экспереминтальных точек
+	double *y_spline3;
+	y_spline3=new double[n3];
+	for(i=0;i<n3;i++){
+		y_spline3[i] = spline_calc(n3,i, t, spline_polin(N, x, y), t[i]);
+
+		}
+	gp.plotArrayPar(n3, t , y_spline3, 1, 5, 7, "Интерполяция сплайнами Точки");
 	//конец
 
 	
